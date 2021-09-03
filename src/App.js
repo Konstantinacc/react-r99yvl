@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, map, flatMap } from 'rxjs/operators';
 import { ajax } from 'rxjs/ajax';
-import { interval, Observable, Subject } from 'rxjs';
+import { interval, Observable, Subject, BehaviorSubject } from 'rxjs';
 import { timer, from } from 'rxjs';
 
 const api = `https://randomuser.me/api/?results=5&seed=rx-react&nat=us&inc=name&noinfo`;
@@ -54,20 +54,57 @@ const api = `https://randomuser.me/api/?results=5&seed=rx-react&nat=us&inc=name&
 // }, []);
 
 // =========================================================
-const fetchResults = {
-  results: [
-    { name: { title: 'Mr', first: 'Mason', last: 'Holmes' } },
-    { name: { title: 'Ms', first: 'Lena', last: 'Holmes' } },
-    { name: { title: 'Mr', first: 'John', last: 'Holmes' } }
-  ]
-};
+// const fetchResults = {
+//   results: [
+//     { name: { title: 'Mr', first: 'Mason', last: 'Holmes' } },
+//     { name: { title: 'Ms', first: 'Lena', last: 'Holmes' } },
+//     { name: { title: 'Mr', first: 'John', last: 'Holmes' } }
+//   ]
+// };
+
+// export default function App() {
+//   const [names, setNames] = useState();
+//   useEffect(() => {
+//     const names$ = new Subject();
+//     names$.subscribe(setNames);
+//     names$.next(fetchResults);
+//   }, []);
+
+// ========================================================
 
 export default function App() {
+  function onLoad(req, res, rej) {
+    if (req.status >= 200 && req.status < 300) {
+      res(req.response);
+    } else {
+      rej({ ...req.response, status: req.status });
+    }
+  }
+
+  function fetch(api) {
+    const req = new XMLHttpRequest();
+    return {
+      promise: new Promise((res, rej) => {
+        req.onload = function onLoadHandler() {
+          onLoad(req, res, rej);
+        };
+        req.onerror = function onErrorHandler(e) {
+          rej(e);
+        };
+        req.open('GET', api);
+        req.send();
+      })
+    };
+  }
+
+  const req$ = () => {
+    const { promise } = fetch(api);
+    return from(promise).pipe(map(x => JSON.parse(x)));
+  };
+
   const [names, setNames] = useState();
   useEffect(() => {
-    const names$ = new Subject();
-    names$.subscribe(setNames);
-    names$.next(fetchResults);
+    req$().subscribe(x => setNames(x));
   }, []);
 
   const listNames = names?.results;
